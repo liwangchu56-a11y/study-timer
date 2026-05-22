@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>学习统计详情</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+    .container {
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+      padding: 30px;
+      width: 100%;
+      max-width: 420px;
+    }
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 20px;
+      font-size: 24px;
+    }
+    .back-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #667eea;
+      text-decoration: none;
+      font-size: 14px;
+      margin-bottom: 15px;
+      cursor: pointer;
+    }
+    .back-btn:hover { text-decoration: underline; }
+    .section {
+      background: #f8f9fa;
+      border-radius: 15px;
+      padding: 20px;
+      margin-bottom: 20px;
+    }
+    .section-title {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+    }
+    .stat-card {
+      background: #fff;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .stat-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    .stat-label {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .history-list {
+      max-height: 300px;
+      overflow-y: auto;
+    }
+    .history-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    .history-item:last-child { border-bottom: none; }
+    .history-date { color: #666; }
+    .history-time { font-weight: bold; color: #667eea; }
+    .week-summary {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .week-summary-value {
+      font-size: 36px;
+      font-weight: bold;
+      color: #667eea;
+    }
+    .week-summary-label {
+      font-size: 12px;
+      color: #999;
+      margin-top: 5px;
+    }
+    .empty-state {
+      text-align: center;
+      color: #999;
+      padding: 20px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <a class="back-btn" onclick="location.href='index.html'">&larr; 返回</a>
+    <h1>学习统计详情</h1>
+
+    <!-- 本周汇总 -->
+    <div class="week-summary">
+      <div id="weekMinutes" class="week-summary-value">0</div>
+      <div class="week-summary-label">本周学习分钟数</div>
+    </div>
+
+    <!-- 今日统计 -->
+    <div class="section">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div class="section-title" style="margin-bottom:0;">今日统计</div>
+        <button onclick="resetToday()" style="padding:6px 12px;background:#f44336;color:#fff;border:none;border-radius:8px;font-size:12px;cursor:pointer;">重置</button>
+      </div>
+      <div class="stats-grid" style="margin-top:15px;">
+        <div class="stat-card">
+          <div id="todayMinutes" class="stat-value">0</div>
+          <div class="stat-label">分钟</div>
+        </div>
+        <div class="stat-card">
+          <div id="todayCount" class="stat-value">0</div>
+          <div class="stat-label">次学习</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 历史记录 -->
+    <div class="section">
+      <div class="section-title">学习记录 (近30天)</div>
+      <div id="historyList" class="history-list">
+        <div class="empty-state">暂无记录</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function getToday() {
+      return new Date().toLocaleDateString('zh-CN');
+    }
+
+    function getWeekMinutes() {
+      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+      const now = new Date();
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+
+      let total = 0;
+      history.forEach(item => {
+        const itemDate = new Date(item.date);
+        if (itemDate >= weekStart) {
+          total += item.minutes;
+        }
+      });
+      return total;
+    }
+
+    function updateStats() {
+      const today = getToday();
+      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+      const todayData = history.find(h => h.date === today);
+
+      document.getElementById('todayMinutes').textContent = todayData ? todayData.minutes : 0;
+      document.getElementById('todayCount').textContent = todayData ? todayData.count : 0;
+      document.getElementById('weekMinutes').textContent = getWeekMinutes();
+    }
+
+    function updateHistory() {
+      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+      const list = document.getElementById('historyList');
+      if (history.length === 0) {
+        list.innerHTML = '<div class="empty-state">暂无记录</div>';
+        return;
+      }
+      list.innerHTML = history.map(item => `
+        <div class="history-item">
+          <span class="history-date">${item.date}</span>
+          <span class="history-time">${item.minutes}分钟 (${item.count}次)</span>
+        </div>
+      `).join('');
+    }
+
+    updateStats();
+    updateHistory();
+
+    function resetToday() {
+      if (confirm('确定要重置今日统计吗？')) {
+        const today = getToday();
+        let history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+        history = history.filter(h => h.date !== today);
+        localStorage.setItem('studyHistory', JSON.stringify(history));
+        updateStats();
+        updateHistory();
+      }
+    }
+  </script>
+</body>
+</html>

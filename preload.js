@@ -1,9 +1,6 @@
-const { contextBridge } = require('electron');
+const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('electronAPI', {
-  saveData: (key, data) => localStorage.setItem(key, JSON.stringify(data)),
-  loadData: (key) => {
-    const data = localStorage.getItem(key);
-    return data ? JSON.parse(data) : null;
-  }
+  createFloatingWindow: () => ipcRenderer.send('create-floating-window'),
+  closeFloatingWindow: () => ipcRenderer.send('close-floating-window')
 });

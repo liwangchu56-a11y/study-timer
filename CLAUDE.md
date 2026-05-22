@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Study Timer - A desktop/web application for tracking study time with Pomodoro functionality.
+Study Timer - A desktop/web application for tracking study time with Pomodoro functionality and floating timer window.
 
 ## Commands
 
@@ -14,33 +14,26 @@ Study Timer - A desktop/web application for tracking study time with Pomodoro fu
 
 ## Architecture
 
-Single-page application with two runtime modes:
-1. **Browser mode**: Direct `index.html` - full functionality without installation
-2. **Electron mode**: `npm start` - desktop window wrapper
+Multi-window Electron application with localStorage-based data persistence.
 
 Key files:
-- `index.html` - UI and all business logic (self-contained, no build step needed)
-- `main.js` - Electron main process (window creation, app lifecycle)
-- `preload.js` - Electron context bridge (minimal, for localStorage access)
+- `index.html` - Main UI (timer, pomodoro, floating window toggle)
+- `stats.html` - Secondary page (today stats, weekly summary, 30-day history)
+- `floating.html` - Always-on-top floating timer (frameless, draggable)
+- `main.js` - Electron main process (window creation, IPC handlers)
+- `preload.js` - Context bridge for IPC communication
 
 ## Data Storage
 
 Uses localStorage with keys:
-- `studyData` - Today's statistics (minutes, count)
-- `studyHistory` - Array of daily records (last 30 days)
-- `lastStudyDate` - For detecting day changes
-
-## Proxy Configuration (Windows)
-
-If npm install fails due to network issues:
-```bash
-git config --global http.proxy http://127.0.0.1:6208
-git config --global https.proxy http://127.0.0.1:6208
-```
+- `currentSessionSeconds` - Current timer value
+- `isRunning` - Timer running state
+- `studyHistory` - Array of daily records `{date, minutes, count}` (last 30 days)
+- `floatingClosed` - Timestamp marker for sync between main and floating windows
 
 ## UI Features
 
-- Main timer (starts on button click, pauses on button click, saves on page unload)
-- Pomodoro timer (independent, auto-starts main timer when started)
-- Study statistics and history
-- Circular reset button with hover animation
+- Main timer with start/pause controls
+- Pomodoro timer (auto-starts main timer)
+- Floating timer window (always-on-top, draggable, closable)
+- Stats page with history and reset functionality

@@ -253,13 +253,6 @@
       background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
     }
 
-    .status-bar {
-      display: flex;
-      justify-content: space-between;
-      font-size: 12px;
-      color: #999;
-      margin-top: 10px;
-    }
     .status-bar span {
       color: #667eea;
       font-weight: bold;
@@ -273,17 +266,13 @@
     <!-- 主计时器 -->
     <div class="section">
       <div class="section-title">学习中</div>
-      <div class="status-bar">
-        <div>今日: <span id="todayTotal">0分钟</span></div>
-        <div>本周: <span id="weekTotal">0分钟</span></div>
-      </div>
-      <div class="timer-row">
-        <div id="timerDisplay" class="timer-display">00:00:00</div>
-        <button id="resetBtn" class="reset-btn" onclick="resetTimer()" title="重置">↻</button>
-      </div>
+      <div id="timerDisplay" class="timer-display">00:00:00</div>
       <div class="btn-group">
         <button id="startBtn" class="btn-success" onclick="startTimer()">开始学习</button>
         <button id="stopBtn" class="btn-danger" onclick="stopTimer()" disabled>暂停</button>
+      </div>
+      <div style="text-align:center;margin-top:15px;">
+        <a href="stats.html" style="color:#667eea;font-size:14px;text-decoration:none;">查看统计 &rarr;</a>
       </div>
     </div>
 
@@ -301,40 +290,21 @@
       <button id="pomodoroBtn" class="pomodoro-btn" onclick="togglePomodoro()">启动番茄钟</button>
     </div>
 
-    <!-- 学习统计 -->
-    <div class="section">
-      <div class="section-title">今日统计</div>
-      <div class="stats-grid">
-        <div class="stat-card">
-          <div id="todayMinutes" class="stat-value">0</div>
-          <div class="stat-label">分钟</div>
-        </div>
-        <div class="stat-card">
-          <div id="todayCount" class="stat-value">0</div>
-          <div class="stat-label">次学习</div>
-        </div>
-      </div>
+    <!-- 悬浮窗口开关 -->
+    <div style="text-align:center;margin-top:10px;">
+      <label style="display:inline-flex;align-items:center;gap:8px;cursor:pointer;font-size:14px;color:#666;">
+        <input type="checkbox" id="floatingToggle" onchange="toggleFloating()">
+        显示悬浮计时
+      </label>
     </div>
 
-    <!-- 历史记录 -->
-    <div class="section">
-      <div class="section-title">学习记录</div>
-      <div id="historyList" class="history-list">
-        <div class="history-item">
-          <span class="history-date">暂无记录</span>
-          <span class="history-time"></span>
-        </div>
-      </div>
-    </div>
   </div>
 
   <script>
     // ==================== 主计时器 ====================
     let timerInterval = null;
-    let elapsedSeconds = 0;
+    let elapsedSeconds = parseInt(localStorage.getItem('currentSessionSeconds') || '0');
     let isRunning = false;
-    let todayMinutes = 0;
-    let todayCount = 0;
 
     // ==================== 番茄钟 ====================
     let pomodoroInterval = null;
@@ -366,13 +336,22 @@
     // ==================== 主计时器函数 ====================
     function startTimer() {
       if (isRunning) return;
+
+      // 清除旧interval（如果有）
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+
       isRunning = true;
+      localStorage.setItem('isRunning', 'true');
       document.getElementById('startBtn').disabled = true;
       document.getElementById('stopBtn').disabled = false;
       document.getElementById('timerDisplay').classList.add('running');
 
       timerInterval = setInterval(() => {
         elapsedSeconds++;
+        localStorage.setItem('currentSessionSeconds', elapsedSeconds);
         updateMainDisplay();
       }, 1000);
     }
@@ -380,13 +359,18 @@
     function stopTimer() {
       if (!isRunning) return;
       clearInterval(timerInterval);
+      timerInterval = null;
       isRunning = false;
+      localStorage.setItem('isRunning', 'false');
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       document.getElementById('timerDisplay').classList.remove('running');
 
-      // 暂停不保存，计时器保持当前状态
-      // 只有按开始继续计时
+      // 暂停时保存当前计时并更新统计
+      localStorage.setItem('currentSessionSeconds', elapsedSeconds);
+      if (elapsedSeconds >= 60) {
+        saveCurrentSession(false); // 不重置elapsedSeconds
+      }
     }
 
     function resetTimer() {
@@ -397,7 +381,9 @@
       clearInterval(timerInterval);
       timerInterval = null;
       isRunning = false;
+      localStorage.setItem('isRunning', 'false');
       elapsedSeconds = 0;
+      localStorage.removeItem('currentSessionSeconds');
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       document.getElementById('timerDisplay').classList.remove('running');
@@ -428,20 +414,35 @@
         pomodoroSeconds = (parseInt(document.getElementById('workTime').value) || 25) * 60;
         updatePomodoroDisplay();
 
+        // 停止番茄钟 - 同时停止主计时器
+        clearInterval(pomodoroInterval);
+        pomodoroInterval = null;
+        pomodoroRunning = false;
+        isBreakTime = false;
+        document.getElementById('pomodoroSection').classList.remove('active');
+        document.getElementById('pomodoroStatus').classList.remove('active');
+        document.getElementById('pomodoroStatus').textContent = '未开始';
+        document.getElementById('pomodoroBtn').textContent = '启动番茄钟';
+        document.getElementById('pomodoroBtn').classList.remove('stop');
+        pomodoroSeconds = (parseInt(document.getElementById('workTime').value) || 25) * 60;
+        updatePomodoroDisplay();
+
         // 停止主计时器 - 先保存时间
-        if (elapsedSeconds >= 60) {
-          saveCurrentSession();
-        }
         if (timerInterval) {
           clearInterval(timerInterval);
           timerInterval = null;
         }
+        // 保存当前计时（>=60秒才计入统计）
+        if (elapsedSeconds > 0) {
+          saveCurrentSession(false); // 不重置elapsedSeconds
+        }
         isRunning = false;
-        elapsedSeconds = 0;
+        // 保留elapsedSeconds和localStorage，以便重新打开可以继续
         document.getElementById('startBtn').disabled = false;
         document.getElementById('stopBtn').disabled = true;
         document.getElementById('timerDisplay').classList.remove('running');
         updateMainDisplay();
+        updatePomodoroDisplay();
       } else {
         // 开始番茄钟 - 同时启动主计时器
         pomodoroRunning = true;
@@ -466,6 +467,10 @@
           updatePomodoroDisplay();
 
           if (pomodoroSeconds <= 0) {
+            // 番茄钟计时器到0时，先保存主计时器的时间
+            if (elapsedSeconds >= 60) {
+              saveCurrentSession();
+            }
             playSound();
             if (!isBreakTime) {
               // 学习完成，进入休息 - 暂停主计时器
@@ -473,7 +478,7 @@
               const breakMinutes = parseInt(document.getElementById('breakTime').value) || 5;
               pomodoroSeconds = breakMinutes * 60;
               document.getElementById('pomodoroStatus').textContent = '休息中';
-              // 暂停主计时器（不保存，暂停计时）
+              // 暂停主计时器
               if (isRunning) {
                 clearInterval(timerInterval);
                 timerInterval = null;
@@ -537,8 +542,8 @@
       }
     }
 
-    function saveCurrentSession() {
-      // 保存当前计时，不重置
+    function saveCurrentSession(resetElapsed = true) {
+      // 保存当前计时
       if (elapsedSeconds >= 60) {
         const minutes = Math.round(elapsedSeconds / 60);
         const today = getToday();
@@ -553,8 +558,10 @@
         }
 
         localStorage.setItem('studyHistory', JSON.stringify(history.slice(0, 30)));
-        updateStats();
-        updateHistory();
+        if (resetElapsed) {
+          elapsedSeconds = 0;
+          localStorage.removeItem('currentSessionSeconds');
+        }
       }
     }
 
@@ -570,59 +577,32 @@
       checkDayChange();
     }, 60000); // 每分钟检查一次
 
-    // ==================== 统计更新 ====================
-    function updateStats() {
-      const today = getToday();
-      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
-      const todayData = history.find(h => h.date === today);
-
-      todayMinutes = todayData ? todayData.minutes : 0;
-      todayCount = todayData ? todayData.count : 0;
-
-      document.getElementById('todayMinutes').textContent = todayMinutes;
-      document.getElementById('todayCount').textContent = todayCount;
-      document.getElementById('todayTotal').textContent = todayMinutes + '分钟';
-      document.getElementById('weekTotal').textContent = getWeekMinutes() + '分钟';
-    }
-
-    function getWeekMinutes() {
-      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
-      const now = new Date();
-      const weekStart = new Date(now);
-      weekStart.setDate(now.getDate() - now.getDay());
-      weekStart.setHours(0, 0, 0, 0);
-
-      let total = 0;
-      history.forEach(item => {
-        const itemDate = new Date(item.date);
-        if (itemDate >= weekStart) {
-          total += item.minutes;
-        }
-      });
-      return total;
-    }
-
-    function updateHistory() {
-      const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
-      const list = document.getElementById('historyList');
-      if (history.length === 0) {
-        list.innerHTML = '<div class="history-item"><span class="history-date">暂无记录</span><span class="history-time"></span></div>';
-        return;
-      }
-      list.innerHTML = history.slice(0, 10).map(item => `
-        <div class="history-item">
-          <span class="history-date">${item.date}</span>
-          <span class="history-time">${item.minutes}分钟</span>
-        </div>
-      `).join('');
-    }
-
     // ==================== 初始化 ====================
     checkDayChange();
     updateMainDisplay();
     updatePomodoroDisplay();
-    updateStats();
-    updateHistory();
+
+    // 初始化悬浮窗口开关
+    document.getElementById('floatingToggle').checked = true;
+
+    // 检查浮窗是否被关闭
+    let lastFloatingClosed = 0;
+    setInterval(() => {
+      const closedTime = localStorage.getItem('floatingClosed');
+      if (closedTime && parseInt(closedTime) > lastFloatingClosed) {
+        lastFloatingClosed = parseInt(closedTime);
+        document.getElementById('floatingToggle').checked = false;
+      }
+    }, 500);
+
+    function toggleFloating() {
+      const checked = document.getElementById('floatingToggle').checked;
+      if (checked) {
+        window.electronAPI.createFloatingWindow();
+      } else {
+        window.electronAPI.closeFloatingWindow();
+      }
+    }
   </script>
 </body>
 </html>
