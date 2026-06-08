@@ -2,16 +2,17 @@
   "name": "study-timer",
   "version": "1.0.0",
   "description": "学习时间统计与番茄钟应用",
-  "main": "main.js",
+  "main": "electron/main.js",
   "scripts": {
     "start": "electron .",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "electron-builder",
+    "dist:portable": "electron-builder --win portable"
   },
   "build": {
     "win": {
       "target": "nsis",
-      "icon": "icon.ico"
+      "icon": "assets/icon.ico"
     }
   },
   "devDependencies": {

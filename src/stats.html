@@ -111,6 +111,50 @@
       padding: 20px;
       font-size: 14px;
     }
+    .pomodoro-settings {
+      background: #fff;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .pomodoro-settings-title {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 15px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .pomodoro-setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .pomodoro-setting-row:last-child { margin-bottom: 0; }
+    .pomodoro-setting-row label {
+      font-size: 14px;
+      color: #333;
+    }
+    .pomodoro-setting-row input {
+      width: 70px;
+      padding: 8px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .save-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: #fff;
+      border: none;
+      border-radius: 10px;
+      font-size: 14px;
+      cursor: pointer;
+      margin-top: 15px;
+    }
+    .save-btn:hover { opacity: 0.9; }
   </style>
 </head>
 <body>
@@ -140,6 +184,16 @@
           <div class="stat-label">次学习</div>
         </div>
       </div>
+    </div>
+
+    <!-- 番茄钟设置 -->
+    <div class="pomodoro-settings">
+      <div class="pomodoro-settings-title">番茄钟设置</div>
+      <div class="pomodoro-setting-row">
+        <label>循环次数</label>
+        <input type="number" id="pomoCycleCount" min="1" max="99" value="1">
+      </div>
+      <button class="save-btn" onclick="savePomodoroSettings()">保存设置</button>
     </div>
 
     <!-- 历史记录 -->
@@ -207,10 +261,35 @@
         let history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
         history = history.filter(h => h.date !== today);
         localStorage.setItem('studyHistory', JSON.stringify(history));
+
+        // 重置主界面计时器状态
+        localStorage.setItem('mainReset', Date.now().toString());
+        localStorage.setItem('currentSessionSeconds', '0');
+        localStorage.removeItem('timerStartTime');
+        localStorage.setItem('isRunning', 'false');
+
         updateStats();
         updateHistory();
       }
     }
+
+    // 番茄钟设置
+    function loadPomodoroSettings() {
+      const settings = JSON.parse(localStorage.getItem('pomodoroSettings') || '{}');
+      if (settings.cycleCount) document.getElementById('pomoCycleCount').value = settings.cycleCount;
+    }
+
+    function savePomodoroSettings() {
+      const settings = {
+        cycleCount: parseInt(document.getElementById('pomoCycleCount').value) || 1
+      };
+      if (settings.cycleCount < 1) settings.cycleCount = 1;
+      if (settings.cycleCount > 99) settings.cycleCount = 99;
+      localStorage.setItem('pomodoroSettings', JSON.stringify(settings));
+      alert('设置已保存');
+    }
+
+    loadPomodoroSettings();
   </script>
 </body>
 </html>

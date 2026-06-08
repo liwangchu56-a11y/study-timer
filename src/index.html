@@ -4,8 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>学习时间统计</title>
+  <link rel="stylesheet" href="../styles/common.css">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -29,61 +29,12 @@
       margin-bottom: 20px;
       font-size: 24px;
     }
-    .section {
-      background: #f8f9fa;
-      border-radius: 15px;
-      padding: 20px;
-      margin-bottom: 20px;
-    }
-    .section-title {
-      font-size: 14px;
-      color: #666;
-      margin-bottom: 15px;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-    .timer-display {
-      font-size: 48px;
-      font-weight: bold;
-      text-align: center;
-      color: #667eea;
-      margin: 15px 0;
-      font-variant-numeric: tabular-nums;
-    }
-    .timer-display.running {
-      color: #4caf50;
-    }
     .timer-row {
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 15px;
       margin: 15px 0;
-    }
-    .reset-btn {
-      background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
-      border: 2px solid #ddd;
-      border-radius: 50%;
-      width: 48px !important;
-      height: 48px !important;
-      min-width: 48px !important;
-      min-height: 48px !important;
-      padding: 0 !important;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      transition: all 0.3s;
-      font-size: 26px;
-      color: #888;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-    }
-    .reset-btn:hover {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-color: #667eea;
-      transform: rotate(180deg);
-      color: #fff;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
     }
     .btn-group {
       display: flex;
@@ -127,48 +78,6 @@
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
-    }
-    .stats-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 15px;
-    }
-    .stat-card {
-      background: #fff;
-      padding: 15px;
-      border-radius: 10px;
-      text-align: center;
-    }
-    .stat-value {
-      font-size: 28px;
-      font-weight: bold;
-      color: #667eea;
-    }
-    .stat-label {
-      font-size: 12px;
-      color: #999;
-      margin-top: 5px;
-    }
-    .history-list {
-      max-height: 200px;
-      overflow-y: auto;
-    }
-    .history-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 10px;
-      border-bottom: 1px solid #eee;
-      font-size: 14px;
-    }
-    .history-item:last-child {
-      border-bottom: none;
-    }
-    .history-date {
-      color: #666;
-    }
-    .history-time {
-      font-weight: bold;
-      color: #667eea;
     }
 
     /* 番茄钟独立区块 */
@@ -218,8 +127,9 @@
     .pomodoro-settings {
       display: flex;
       justify-content: center;
-      gap: 15px;
+      gap: 10px;
       margin-bottom: 15px;
+      flex-wrap: wrap;
     }
     .pomodoro-settings input {
       width: 60px;
@@ -300,11 +210,17 @@
 
   </div>
 
+  <script src="../js/constants.js"></script>
   <script>
     // ==================== 主计时器 ====================
     let timerInterval = null;
-    let elapsedSeconds = parseInt(localStorage.getItem('currentSessionSeconds') || '0');
+    let elapsedSeconds = parseInt(localStorage.getItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS) || '0');
     let isRunning = false;
+    let timerStartTime = null;
+
+    // ==================== 初始化变量（必须在使用之前声明）====================
+    let lastMainReset = 0;
+    let lastFloatingClosed = 0;
 
     // ==================== 番茄钟 ====================
     let pomodoroInterval = null;
@@ -312,6 +228,8 @@
     let pomodoroRunning = false;
     let isBreakTime = false;
     let audioCtx = null;
+    let currentCycle = 0;
+    let totalCycles = 0;
 
     function initAudio() {
       if (!audioCtx) {
@@ -344,14 +262,16 @@
       }
 
       isRunning = true;
-      localStorage.setItem('isRunning', 'true');
+      localStorage.setItem(STORAGE_KEYS.IS_RUNNING, 'true');
+      timerStartTime = Date.now() - (elapsedSeconds * 1000);
+      localStorage.setItem(STORAGE_KEYS.TIMER_START_TIME, timerStartTime.toString());
       document.getElementById('startBtn').disabled = true;
       document.getElementById('stopBtn').disabled = false;
       document.getElementById('timerDisplay').classList.add('running');
 
       timerInterval = setInterval(() => {
-        elapsedSeconds++;
-        localStorage.setItem('currentSessionSeconds', elapsedSeconds);
+        elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+        localStorage.setItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS, elapsedSeconds);
         updateMainDisplay();
       }, 1000);
     }
@@ -361,13 +281,14 @@
       clearInterval(timerInterval);
       timerInterval = null;
       isRunning = false;
-      localStorage.setItem('isRunning', 'false');
+      localStorage.setItem(STORAGE_KEYS.IS_RUNNING, 'false');
+      timerStartTime = null;
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       document.getElementById('timerDisplay').classList.remove('running');
 
       // 暂停时保存当前计时并更新统计
-      localStorage.setItem('currentSessionSeconds', elapsedSeconds);
+      localStorage.setItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS, elapsedSeconds);
       if (elapsedSeconds >= 60) {
         saveCurrentSession(false); // 不重置elapsedSeconds
       }
@@ -381,9 +302,11 @@
       clearInterval(timerInterval);
       timerInterval = null;
       isRunning = false;
-      localStorage.setItem('isRunning', 'false');
+      localStorage.setItem(STORAGE_KEYS.IS_RUNNING, 'false');
       elapsedSeconds = 0;
-      localStorage.removeItem('currentSessionSeconds');
+      timerStartTime = null;
+      localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS);
+      localStorage.removeItem(STORAGE_KEYS.TIMER_START_TIME);
       document.getElementById('startBtn').disabled = false;
       document.getElementById('stopBtn').disabled = true;
       document.getElementById('timerDisplay').classList.remove('running');
@@ -406,6 +329,8 @@
         pomodoroInterval = null;
         pomodoroRunning = false;
         isBreakTime = false;
+        currentCycle = 0;
+        totalCycles = 0;
         document.getElementById('pomodoroSection').classList.remove('active');
         document.getElementById('pomodoroStatus').classList.remove('active');
         document.getElementById('pomodoroStatus').textContent = '未开始';
@@ -414,42 +339,29 @@
         pomodoroSeconds = (parseInt(document.getElementById('workTime').value) || 25) * 60;
         updatePomodoroDisplay();
 
-        // 停止番茄钟 - 同时停止主计时器
-        clearInterval(pomodoroInterval);
-        pomodoroInterval = null;
-        pomodoroRunning = false;
-        isBreakTime = false;
-        document.getElementById('pomodoroSection').classList.remove('active');
-        document.getElementById('pomodoroStatus').classList.remove('active');
-        document.getElementById('pomodoroStatus').textContent = '未开始';
-        document.getElementById('pomodoroBtn').textContent = '启动番茄钟';
-        document.getElementById('pomodoroBtn').classList.remove('stop');
-        pomodoroSeconds = (parseInt(document.getElementById('workTime').value) || 25) * 60;
-        updatePomodoroDisplay();
-
-        // 停止主计时器 - 先保存时间
+        // 停止主计时器
         if (timerInterval) {
           clearInterval(timerInterval);
           timerInterval = null;
         }
-        // 保存当前计时（>=60秒才计入统计）
         if (elapsedSeconds > 0) {
-          saveCurrentSession(false); // 不重置elapsedSeconds
+          saveCurrentSession(false);
         }
         isRunning = false;
-        // 保留elapsedSeconds和localStorage，以便重新打开可以继续
         document.getElementById('startBtn').disabled = false;
         document.getElementById('stopBtn').disabled = true;
         document.getElementById('timerDisplay').classList.remove('running');
         updateMainDisplay();
-        updatePomodoroDisplay();
       } else {
         // 开始番茄钟 - 同时启动主计时器
         pomodoroRunning = true;
         isBreakTime = false;
+        const settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.POMODORO_SETTINGS) || '{}');
+        totalCycles = settings.cycleCount || 1;
+        currentCycle = 1;
         document.getElementById('pomodoroSection').classList.add('active');
         document.getElementById('pomodoroStatus').classList.add('active');
-        document.getElementById('pomodoroStatus').textContent = '学习中';
+        document.getElementById('pomodoroStatus').textContent = `第${currentCycle}/${totalCycles}轮`;
         document.getElementById('pomodoroBtn').textContent = '停止番茄钟';
         document.getElementById('pomodoroBtn').classList.add('stop');
 
@@ -475,7 +387,8 @@
             if (!isBreakTime) {
               // 学习完成，进入休息 - 暂停主计时器
               isBreakTime = true;
-              const breakMinutes = parseInt(document.getElementById('breakTime').value) || 5;
+              const settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.POMODORO_SETTINGS) || '{}');
+              const breakMinutes = settings.breakTime || parseInt(document.getElementById('breakTime').value) || 5;
               pomodoroSeconds = breakMinutes * 60;
               document.getElementById('pomodoroStatus').textContent = '休息中';
               // 暂停主计时器
@@ -488,12 +401,41 @@
                 document.getElementById('timerDisplay').classList.remove('running');
               }
             } else {
-              // 休息完成，开始新番茄钟 - 重新启动主计时器
-              isBreakTime = false;
-              const workMinutes = parseInt(document.getElementById('workTime').value) || 25;
-              pomodoroSeconds = workMinutes * 60;
-              document.getElementById('pomodoroStatus').textContent = '学习中';
-              startTimer();
+              // 休息完成，检查是否结束循环
+              if (totalCycles > 0 && currentCycle >= totalCycles) {
+                // 循环次数用完，停止番茄钟
+                clearInterval(pomodoroInterval);
+                pomodoroInterval = null;
+                pomodoroRunning = false;
+                currentCycle = 0;
+                document.getElementById('pomodoroSection').classList.remove('active');
+                document.getElementById('pomodoroStatus').classList.remove('active');
+                document.getElementById('pomodoroStatus').textContent = '已完成';
+                document.getElementById('pomodoroBtn').textContent = '启动番茄钟';
+                document.getElementById('pomodoroBtn').classList.remove('stop');
+                pomodoroSeconds = (parseInt(document.getElementById('workTime').value) || 25) * 60;
+                updatePomodoroDisplay();
+                if (isRunning) {
+                  clearInterval(timerInterval);
+                  timerInterval = null;
+                }
+                if (elapsedSeconds > 0) {
+                  saveCurrentSession(false);
+                }
+                isRunning = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('stopBtn').disabled = true;
+                document.getElementById('timerDisplay').classList.remove('running');
+                updateMainDisplay();
+              } else {
+                // 继续下一轮
+                isBreakTime = false;
+                currentCycle++;
+                const workMinutes = parseInt(document.getElementById('workTime').value) || 25;
+                pomodoroSeconds = workMinutes * 60;
+                document.getElementById('pomodoroStatus').textContent = totalCycles > 0 ? `第${currentCycle}/${totalCycles}轮` : '学习中';
+                startTimer();
+              }
             }
           }
         }, 1000);
@@ -514,12 +456,13 @@
     }
 
     function checkDayChange() {
-      const lastDate = localStorage.getItem('lastStudyDate');
+      const lastDate = localStorage.getItem(STORAGE_KEYS.LAST_STUDY_DATE);
       const today = getToday();
       if (lastDate && lastDate !== today) {
-        // 新的一天，昨天的数据已经在saveDailyData中处理
+        // 新的一天到来，保存昨日数据
+        saveDailyData();
       }
-      localStorage.setItem('lastStudyDate', today);
+      localStorage.setItem(STORAGE_KEYS.LAST_STUDY_DATE, today);
     }
 
     function saveDailyData() {
@@ -527,7 +470,7 @@
       if (elapsedSeconds >= 60) {
         const minutes = Math.round(elapsedSeconds / 60);
         const today = getToday();
-        const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDY_HISTORY) || '[]');
 
         const todayEntry = history.find(h => h.date === today);
         if (todayEntry) {
@@ -537,7 +480,7 @@
           history.unshift({ date: today, minutes: minutes, count: 1 });
         }
 
-        localStorage.setItem('studyHistory', JSON.stringify(history.slice(0, 30)));
+        localStorage.setItem(STORAGE_KEYS.STUDY_HISTORY, JSON.stringify(history.slice(0, 30)));
         elapsedSeconds = 0; // 重置计时
       }
     }
@@ -547,7 +490,7 @@
       if (elapsedSeconds >= 60) {
         const minutes = Math.round(elapsedSeconds / 60);
         const today = getToday();
-        const history = JSON.parse(localStorage.getItem('studyHistory') || '[]');
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEYS.STUDY_HISTORY) || '[]');
 
         const todayEntry = history.find(h => h.date === today);
         if (todayEntry) {
@@ -557,10 +500,10 @@
           history.unshift({ date: today, minutes: minutes, count: 1 });
         }
 
-        localStorage.setItem('studyHistory', JSON.stringify(history.slice(0, 30)));
+        localStorage.setItem(STORAGE_KEYS.STUDY_HISTORY, JSON.stringify(history.slice(0, 30)));
         if (resetElapsed) {
           elapsedSeconds = 0;
-          localStorage.removeItem('currentSessionSeconds');
+          localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS);
         }
       }
     }
@@ -568,7 +511,7 @@
     // 页面离开时保存
     window.addEventListener('beforeunload', () => {
       if (isRunning || elapsedSeconds > 0) {
-        saveDailyData();
+        saveCurrentSession(false); // 不重置elapsedSeconds，保留当前进度
       }
     });
 
@@ -578,20 +521,76 @@
     }, 60000); // 每分钟检查一次
 
     // ==================== 初始化 ====================
-    checkDayChange();
-    updateMainDisplay();
-    updatePomodoroDisplay();
+    function init() {
+      const today = getToday();
+      const lastStudyDate = localStorage.getItem(STORAGE_KEYS.LAST_STUDY_DATE);
 
-    // 初始化悬浮窗口开关
-    document.getElementById('floatingToggle').checked = true;
+      // 每日重置检查：如果日期变化，先保存昨日数据，再重置计时器
+      const isDayChanged = lastStudyDate && lastStudyDate !== today;
+      if (isDayChanged) {
+        // 先保存昨日学习数据（会调用 saveDailyData）
+        checkDayChange();
+        // 然后清除昨日计时
+        elapsedSeconds = 0;
+        isRunning = false;
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS);
+        localStorage.removeItem(STORAGE_KEYS.TIMER_START_TIME);
+        localStorage.setItem(STORAGE_KEYS.IS_RUNNING, 'false');
+      } else {
+        checkDayChange();
+      }
+      updateMainDisplay();
+      updatePomodoroDisplay();
 
-    // 检查浮窗是否被关闭
-    let lastFloatingClosed = 0;
+      // 加载番茄钟设置
+      const settings = JSON.parse(localStorage.getItem(STORAGE_KEYS.POMODORO_SETTINGS) || '{}');
+      if (settings.cycleCount) {
+        document.getElementById('pomodoroStatus').textContent = `第1/${settings.cycleCount}轮`;
+      }
+
+      // 初始化悬浮窗口开关（默认关闭）
+      document.getElementById('floatingToggle').checked = false;
+
+      // 从存储恢复计时器状态（处理应用恢复，但日期变化时不恢复）
+      if (!isDayChanged && localStorage.getItem(STORAGE_KEYS.IS_RUNNING) === 'true') {
+        const savedStartTime = localStorage.getItem(STORAGE_KEYS.TIMER_START_TIME);
+        if (savedStartTime) {
+          timerStartTime = parseInt(savedStartTime);
+          elapsedSeconds = Math.floor((Date.now() - timerStartTime) / 1000);
+          isRunning = true;
+          document.getElementById('startBtn').disabled = true;
+          document.getElementById('stopBtn').disabled = false;
+          document.getElementById('timerDisplay').classList.add('running');
+          startTimer();
+        }
+      }
+    }
+
+    init();
+
+    // 检查浮窗是否被关闭/重置信号
     setInterval(() => {
-      const closedTime = localStorage.getItem('floatingClosed');
+      const closedTime = localStorage.getItem(STORAGE_KEYS.FLOATING_CLOSED);
       if (closedTime && parseInt(closedTime) > lastFloatingClosed) {
         lastFloatingClosed = parseInt(closedTime);
         document.getElementById('floatingToggle').checked = false;
+      }
+      // 检查来自stats页面的重置信号
+      const resetTime = localStorage.getItem(STORAGE_KEYS.MAIN_RESET);
+      if (resetTime && parseInt(resetTime) > lastMainReset) {
+        lastMainReset = parseInt(resetTime);
+        clearInterval(timerInterval);
+        timerInterval = null;
+        isRunning = false;
+        elapsedSeconds = 0;
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_SESSION_SECONDS);
+        localStorage.removeItem(STORAGE_KEYS.TIMER_START_TIME);
+        localStorage.removeItem(STORAGE_KEYS.IS_RUNNING);
+        localStorage.removeItem(STORAGE_KEYS.MAIN_RESET);
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('stopBtn').disabled = true;
+        document.getElementById('timerDisplay').classList.remove('running');
+        updateMainDisplay();
       }
     }, 500);
 

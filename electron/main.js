@@ -13,14 +13,10 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true,
       preload: path.join(__dirname, 'preload.js')
-    },
-    icon: path.join(__dirname, 'icon.ico')
+    }
   });
 
-  mainWindow.loadFile('index.html');
-
-  // 默认创建浮窗口
-  createFloatingWindow();
+   mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
 }
 
 function createFloatingWindow() {
@@ -43,7 +39,7 @@ function createFloatingWindow() {
     }
   });
 
-  floatWindow.loadFile('floating.html');
+   floatWindow.loadFile(path.join(__dirname, '../src/floating.html'));
   floatWindow.setPosition(100, 100);
 
   floatWindow.on('closed', () => {
